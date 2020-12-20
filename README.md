@@ -1,15 +1,17 @@
 ## Giraffe
+Note this branch is for GTK4. See the GTK3 branch for the previous version.
+
 Giraffe is a simple graphing libary written in Gtk+ 3 and vala to be helpful. 
 
 The dependencies for this libary are:
 	
 	valac 		(or vala depending on your distro)
-	gtk3
+	gtk4
 	meson
 	valadoc 	(for documentation not mandatory)
 On Debian derivatives you will also need:
 	
-	libgtk-3-dev
+	libgtk-4-dev (I think)
 
 To get this libary and install it to your system use:
 
