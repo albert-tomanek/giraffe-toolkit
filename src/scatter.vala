@@ -1,7 +1,7 @@
 /*
  * scatter.vala
  * 
- * Copyright 2020 John Toohey
+ * Copyright 2020 John Toohey <john_t@mailo.com>
  * 
  * This file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -42,15 +42,15 @@ namespace Giraffe
 			points = new ArrayList<GraphPoint?>();
 			// Gets the colour of a label so that this looks good no matter what theme you use
 			StyleContext style_context = popover_title.get_style_context();
-			label_color = style_context.get_color();
-			
-			set_draw_func(draw);
+			label_color = style_context.get_color(ACTIVE);
 			
 			popover_setter.connect(default_popover_setter);
 			gen();
 			}
-		protected void draw(DrawingArea? da, Context cr, int width, int height)
+		internal override bool draw(Context cr)
 			{
+			int width = get_allocated_width();
+			int height = get_allocated_height();
 			generate_max_mins();
 			
 			foreach (GraphPoint point in points)
@@ -62,6 +62,7 @@ namespace Giraffe
 				cr.rectangle(x-2,y-2,4,4);
 				cr.fill();
 				}
+			return true;
 			}
 		protected override void motion(double x, double y)
 			{
@@ -151,23 +152,17 @@ namespace Giraffe
 			min_label_x = new Label(null);
 			max_label_x = new Label(null);
 
-			// Note in gtk4 they removed the angle property of labels. 
+			max_label_x.angle=90;
+			min_label_x.angle=90;
 			
-			x_box.prepend(min_label_x);
-			x_box.append(max_label_x);
-			
-			min_label_x.hexpand=false;
-			max_label_x.hexpand=false;
-			min_label_x.vexpand=false;
-			max_label_x.vexpand=false;
-			
-			min_label_x.halign=START;
-			max_label_x.halign=END;
+			x_box.homogeneous = false;
+			x_box.pack_start(min_label_x,false,false,0);
+			x_box.pack_end(max_label_x,false,false,0);
 			
 			scatter_viewer = new ScatterViewer();
 			scatter_viewer.popover_setter.disconnect(scatter_viewer.default_popover_setter);
 			scatter_viewer.popover_setter.connect(popover_setter);
-			frame.set_child(scatter_viewer);
+			frame.add(scatter_viewer);
 			notify.connect(update_labels);
 			}
 		public GraphPoint add_point(string title, int x, int y)

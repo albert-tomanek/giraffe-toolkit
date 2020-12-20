@@ -1,7 +1,7 @@
 /*
  * bar.vala
  * 
- * Copyright 2020 John Toohey
+ * Copyright 2020 John Toohey <john_t@mailo.com>
  * 
  * This file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -89,30 +89,28 @@ namespace Giraffe
 			
 			}
 			{
-			popover = new Popover(); // Creates a popover
-			popover.set_parent(this);
-			popover.autohide=false; // Prevents it from blocking out other input
+			popover = new Popover(this); // Creates a popover
+			popover.modal=false; // Prevents it from blocking out other input
 			
 			popover_title = new Label(title); // Creates some Labels
 			popover_value = new Label(null);
 			
 			popover_box = new Box(VERTICAL,6); // Adds some things to a box
-			popover_box.append(popover_value);
-			popover_box.append(popover_title);
-			popover_box.margin_bottom=10;
-			popover_box.margin_top=10;
-			popover_box.margin_end=10;
-			popover_box.margin_start=10;
+			popover_box.pack_start(popover_title,false,false,0);
+			popover_box.pack_start(popover_value,false,false,0);
 			
-			popover.set_child(popover_box);
+			popover_value.show(); // Shows and adds everything
+			popover_title.show();
+			popover.add(popover_box);
 			}
 			
 			{
-				motion_controller = new EventControllerMotion();
-				this.add_controller(motion_controller);
+				motion_controller = new EventControllerMotion(this);
+				this.add_events(Gdk.EventMask.POINTER_MOTION_MASK);
+				this.add_events(Gdk.EventMask.LEAVE_NOTIFY_MASK);
 				this.motion_controller.motion.connect(motion_notify_events);
 				this.motion_controller.leave.connect((a)=>{popover.popdown();});
-				this.set_draw_func(draw);
+				this.leave_notify_event.connect((a)=>{popover.popdown();});
 			}	
 			this.notify.connect(reload);
 			}
@@ -124,7 +122,7 @@ namespace Giraffe
 				show();
 				}
 			}
-		protected void draw(DrawingArea da, Context cr, int width, int height)
+		protected override bool draw(Context cr)
 			{
 			cr.set_source_rgba // Sets the colours
 				(
@@ -140,6 +138,7 @@ namespace Giraffe
 			cr.fill();
 			
 			popover.pointing_to = rect;
+			return false; // Our artistic skills come to a close
 			}
 		public void update_rect()
 			{
@@ -163,6 +162,7 @@ namespace Giraffe
 			rect.y = 		(int) map_range(y,min_val,max_val,height,0);
 			rect.width = 	width;
 			rect.height = 	(int) map_range(dheight,min_val,max_val,height,0)-rect.y;
+			print("%f\t%f\n",rect.y,rect.height);
 			this.rect = rect;
 			}
 		private void motion_notify_events (double x, double y) 
@@ -171,13 +171,12 @@ namespace Giraffe
 			if (rect.x<x && x<rect.width+rect.x && rect.y<y && y<rect.height+rect.y) // Maths! Checks if the mouse is in the bar
 				{
 				popover.popup(); // Update the popover
-				popover.measure(VERTICAL,100,null,null,null,null);
-				
 				popover_title.label = title;
 				if (unit!=null)
 					popover_value.label = "%s (%s)".printf(val.to_string(),unit);
 				else
 					popover_value.label = val.to_string();
+				popover_box.show_all();
 				}
 			else
 				popover.popdown(); // Closes the popover
@@ -199,19 +198,18 @@ namespace Giraffe
 		construct
 			{
 			bar_box = new Box(HORIZONTAL, 6);
-			frame.set_child(bar_box);
+			frame.add(bar_box);
 			bars = new ArrayList<Bar>();
 			this.notify.connect(notify_actions);	
 			}
 		public void add_bar(Bar bar)
 			{
 			bars.add(bar);
-			bar_box.append(bar);
+			bar_box.add(bar);
 			Label lab = new Label(bar.title);
-			x_box.append(lab);
+			x_box.add(lab);
 			foreach (Bar b in bars) b.max_val = get_max_value();
-			
-			run_bar_checks();
+			bar_box.add(bar);
 			}
 		public void add_bar_from_information(string title, double val)
 			{
@@ -225,8 +223,12 @@ namespace Giraffe
 			colourn = colourn%35;
 			Bar bar = new Bar(colour,title,val,get_max_value());
 			bar.val=val;
+			bars.add(bar);
 			bar.title=title;
-			add_bar(bar);
+			bar_box.add(bar);
+			Label lab = new Label(bar.title);
+			x_box.add(lab);
+			run_bar_checks();
 			}
 		public void run_bar_checks()
 			{

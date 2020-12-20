@@ -15,6 +15,6 @@ doc = custom_target('documentation',
 	'--verbose',
 	'--pkg=cairo',
 	'--pkg=gee-0.8',
-	'--pkg=gtk4',
+	'--pkg=gtk+-3.0',
 	'-b docsrc',
 	src] )

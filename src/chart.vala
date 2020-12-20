@@ -1,7 +1,7 @@
 /*
  * chart.vala
  * 
- * Copyright 2020 John Toohey
+ * Copyright 2020 John Toohey <john_t@mailo.com>
  * 
  * This file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -98,19 +98,15 @@ namespace Giraffe
 			
 			x_axis_label = new Label(null);
 			y_axis_label = new Label(null);
+			y_axis_label.angle=90;
+			this.show.connect((a)=>{this.show_all();});
 			
 			x_box = new Box(HORIZONTAL,6);
 			x_box.homogeneous = true;
 			
 			y_box = new Box(VERTICAL,6);
-			y_box.prepend(max_label);
-			max_label.valign=START;
-			max_label.vexpand=false;
-			
-			y_box.append(min_label);
-			y_box.homogeneous=true;
-			min_label.valign=END;
-			min_label.vexpand=false;
+			y_box.pack_start(max_label,false,false,0);
+			y_box.pack_end(min_label,false,false,0);
 			
 			frame = new Frame(null);
 			base.attach(y_box,			1,1,1,1);
@@ -122,8 +118,14 @@ namespace Giraffe
 			base.attach(frame,2,1,1,1);
 			base.attach(title_label,	0,0,3,1);
 			
-			frame.hexpand=true;
-			frame.vexpand=true;
+			size_allocate.connect(size_alloc);
+			frame.shadow_type = ETCHED_OUT;
+			frame.expand=true;
+			}
+		public void size_alloc(Allocation alloc)
+			{
+			this.set_allocation(alloc);
+			this.alloc = alloc;
 			}
 		}
 	}

@@ -1,6 +1,6 @@
 /* line.vala
  *
- * Copyright 2020 John Toohey
+ * Copyright 2020 John Toohey <john_t@mailo.com>
  *
  * This file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -47,13 +47,13 @@ namespace Giraffe
 		construct
 			{
 			lines = new ArrayList<Line?>();
-			hexpand=true;
-			vexpand=true;
+			expand=true;
 			gen();
-			set_draw_func(draw);
 			}
-		protected void draw(DrawingArea da, Context cr, int width, int height)
+		public override bool draw(Context cr)
 			{
+			int height = get_allocated_height();
+			int width = get_allocated_width();
 			generate_max_mins();
 			foreach (Line line in lines)
 				{
@@ -74,6 +74,7 @@ namespace Giraffe
 					cr.stroke();
 					}
 				}
+			return false;
 			}
 		public override void generate_max_mins()
 			{
@@ -111,12 +112,12 @@ namespace Giraffe
 						double lx = map_range(point.x,min_val_x,max_val_x,0,width);
 						double ly = map_range_flip(point.y,min_val,max_val,0,height);
 						double distance = pow((pow(x-lx,2)+pow(y-ly,2)),0.5); // Gets the distance away from the center of the pie
-						if (fabs(distance)<32 && y>point.y)
+						if (distance<80 && y>point.y)
 							{
 							popover_setter(point,line,popover_title,popover_name,popover_value_label);
 							Gdk.Rectangle rect = Gdk.Rectangle();
 							rect.x=(int) lx;
-							rect.y=(int) ly;
+							rect.y=(int) ly-20;
 							rect.width=1;
 							rect.height=1;
 							popover.pointing_to = rect;
@@ -126,9 +127,7 @@ namespace Giraffe
 						}
 					}
 				}
-			
 			if (popup) popover.popup();
-			else popover.popdown();
 			}
 		/**
 		 * The default way of setting popover values, good for some cases
@@ -178,17 +177,14 @@ namespace Giraffe
 			line_viewer = new LineViewer();
 			min_label_x = new Label(null);
 			max_label_x = new Label(null);
+
+			max_label_x.angle=90;
+			min_label_x.angle=90;
 			
-			x_box.prepend(min_label_x);
-			min_label_x.halign=START;
-			min_label_x.hexpand=false;
-			min_label_x.vexpand=false;
-			x_box.append(max_label_x);
-			max_label_x.halign=END;
-			max_label_x.hexpand=false;
-			max_label_x.vexpand=false;
-			
-			frame.set_child(line_viewer);
+			x_box.homogeneous = false;
+			x_box.pack_start(min_label_x,false,false,0);
+			x_box.pack_end(max_label_x,false,false,0);
+			frame.add(line_viewer);
 			
 			line_viewer.popover_setter.disconnect(line_viewer.update_popover);
 			line_viewer.popover_setter.connect(update_popover);

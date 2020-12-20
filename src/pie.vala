@@ -1,7 +1,7 @@
 /*
  * pie.vala
  * 
- * Copyright 2020 John Toohey
+ * Copyright 2020 John Toohey <john_t@mailo.com>
  * 
   * This file is free software; you can redistribute it and/or modify it
  * under the terms of the GNU Lesser General Public License as
@@ -106,8 +106,6 @@ namespace Giraffe
 		 */
 		public bool use_gradient {get;set;default=true;}
 		
-		public EventControllerMotion motion_controller;
-		
 		protected Popover popover;
 		/**
 		 * Creates a new Pie from no arguments
@@ -119,19 +117,16 @@ namespace Giraffe
 		construct 
 			{
 			this.max_val=100;
-			motion_controller = new EventControllerMotion();
-			this.add_controller(motion_controller);
-			this.motion_controller.motion.connect(draw_motion_notify_event);
-			this.motion_controller.leave.connect(()=>popover.popdown());
+			this.add_events(Gdk.EventMask.POINTER_MOTION_MASK);
+			this.motion_notify_event.connect(draw_motion_notify_event);
 			this.width_request = 64;
 			this.height_request = 64;
 			
 			this.segments = new ArrayList<PieSegment?>();
 			
 			{
-				popover = new Popover();
-				popover.set_parent(this);
-				popover.autohide=false;
+				popover = new Popover(this);
+				popover.modal=false;
 				
 				part_description = new Grid(); // Creates a box to store information about the segment
 				part_description.row_homogeneous=true;
@@ -144,7 +139,7 @@ namespace Giraffe
 				part_description_label.justify = CENTER;
 				
 				part_description_area = new DrawingArea(); // Creates a Drawing Area
-				part_description_area.set_draw_func(part_description_area_draw_func);
+				part_description_area.draw.connect(part_description_area_draw_func);
 				part_description_area.show();
 				
 				part_description_value_label.hexpand=true;
@@ -153,15 +148,17 @@ namespace Giraffe
 				part_description.attach(part_description_label,0,0,2,1); // Adds the widgets to the box
 				part_description.attach(part_description_value_label,0,1,1,1);
 				part_description.attach(part_description_area,1,1,1,1);
-				popover.set_child(part_description);
+				popover.add(part_description);
+				part_description.show_all();
 			}
-			hexpand=true;
-			vexpand=true;
-			this.set_draw_func(draw);
+			expand=true;
+		
 			}
-		protected void part_description_area_draw_func(DrawingArea da, Context cr, int width, int height)
+		protected bool part_description_area_draw_func(Context cr)
 			{
-			cr.rectangle((width/2)-8,0,16,16); // Creates a rectangle
+			Allocation alloc;
+			part_description_area.get_allocation(out alloc);
+			cr.rectangle((alloc.width/2)-8,0,16,16); // Creates a rectangle
 			if (segment_hovered!=null) // Checks if a segment is actually installed
 				{	
 				PieSegment ps = segments[segment_hovered];
@@ -176,7 +173,7 @@ namespace Giraffe
 					}
 				else
 					{
-					Pattern pattern = new Pattern.linear(0,(height/2)-radius,0,(height/2)+radius);
+					Pattern pattern = new Pattern.linear(0,(alloc.height/2)-radius,0,(alloc.height/2)+radius);
 					
 					RGBA[] colors = get_colours_from_number(ps.palette_color);
 					pattern.add_color_stop_rgb(0,
@@ -200,18 +197,21 @@ namespace Giraffe
 				}
 				cr.fill(); // Fills the rectangles
 				
+			return(true); // No need to do any more drawing
 			}
-		protected void draw(DrawingArea da, Context cr, int width, int height)
+		public override bool draw(Context cr)
 			{
 			// These variables
 			double start_x;
 			double start_y;
+			Allocation alloc = Allocation();
+			this.get_allocated_size(out alloc,null);
 			
-			radius = width/2;
-			if (height/2<radius) radius = height/2;
+			radius = alloc.width/2;
+			if (alloc.height/2<radius) radius = alloc.height/2;
 			
-			start_x = width/2;
-			start_y = height/2;
+			start_x = alloc.width/2;
+			start_y = alloc.height/2;
 			
 			double running_total = 0;
 			
@@ -221,7 +221,7 @@ namespace Giraffe
 				// Sets the color for the pie-segment
 				if (use_gradient)
 					{
-					Pattern pattern = new Pattern.linear(0,(height/2)-radius,0,height/2);
+					Pattern pattern = new Pattern.linear(0,(alloc.height/2)-radius,0,alloc.height/2);
 					
 					RGBA[] colors = get_colours_from_number(ps.palette_color);
 					pattern.add_color_stop_rgb(0,
@@ -258,12 +258,13 @@ namespace Giraffe
 				
 				running_total+=ps.val; // Increases the running total
 				}
+			return false; // This just means that we don't need to redraw anything.
 			}
-		private void draw_motion_notify_event (Gtk.EventControllerMotion ecm, double rx, double ry) 
+		private bool draw_motion_notify_event (Gdk.EventMotion event) 
 			{
 			
-			double x = rx; // Gets the mouse position X
-			double y = ry; // Gets the mouse position Y
+			double x = event.x; // Gets the mouse position X
+			double y = event.y; // Gets the mouse position Y
 			
 			x -= this.get_allocated_width() /2;
 			y -= this.get_allocated_height() /2;
@@ -307,6 +308,7 @@ namespace Giraffe
 				part_description_area.show(); /// Yes i know there is a better way to do this but :D
 				}
 			set_part_description_value();
+			return false;
 			}
 		/**
 		 * Used to set the value on the popover.
@@ -407,8 +409,7 @@ namespace Giraffe
 		public new void add_segment(string title, float pie_value)
 			{
 			PieSegment ps = new PieSegment(title,pie_value);
-			this.hexpand=true;
-			this.vexpand=true;
+			this.expand=true;
 			ps.color=RGBA();
 			ps.color.red	= gnome_palette[colorn,0]/255f;
 			ps.color.blue	= gnome_palette[colorn,1]/255f;
