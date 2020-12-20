@@ -1,0 +1,12 @@
+
+giraffe.vapi
+giraffe.h
+example
+taskman
+*.so
+*.c
+.buildconfig
+*vgcore*
+Giraffe-1.0.gir
+doc
+build

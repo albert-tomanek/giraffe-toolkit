@@ -1,0 +1,11 @@
+prefix=/usr
+exec_prefix=${prefix}
+libdir=${prefix}/lib
+includedir=${prefix}/include
+
+Name: Giraffe
+Description: A GTK+ Cairo Graphing Libary 
+Version: 1.0
+Requires: gtk+-3.0
+Libs: -L${libdir} -lgiraffe 
+Cflags: -I${includedir}/giraffe
