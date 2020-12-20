@@ -1,7 +1,6 @@
 
 giraffe.vapi
 giraffe.h
-example
 taskman
 *.so
 *.c

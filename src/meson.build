@@ -8,7 +8,7 @@ deps = [glib_dep,gobject_dep,gtk_dep,cairo_dep,gee_dep,meson.get_compiler('c').f
 ]
 
 src = ['giraffe.vala','chart.vala','pie.vala','bar.vala','line.vala','scatter.vala','graph_viewer.vala']
-giraffe_lib = library('giraffe',
+giraffe_lib = library('giraffe4',
 					src,
 					install: true,
 					install_dir: ['lib', 'include', 'share/vala/vapi'],
@@ -20,10 +20,10 @@ pkg = import('pkgconfig')
 pkg.generate (
 	description: 'A library to display charts and graphs in Gtk 3',
 	libraries: giraffe_lib,
-	name: 'giraffe',
-	filebase: 'giraffe',
+	name: 'giraffe4',
+	filebase: 'giraffe4',
 	version: meson.project_version(),
-	subdirs: 'giraffe',
+	subdirs: 'giraffe4',
 	requires: ['glib-2.0','gobject-2.0','gtk4','cairo','gee-0.8'],
 	install_dir: join_paths(get_option('libdir'),'pkgconfig')
 	)

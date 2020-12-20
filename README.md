@@ -37,3 +37,5 @@ An example project can be generated with:
     meson ..
     ninja
 Run with ./example
+
+To include with your program (using pkg-config or --pkg for vala) use the package giraffe4
