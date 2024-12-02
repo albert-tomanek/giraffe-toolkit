@@ -1,3 +1,5 @@
+gnome = import('gnome')
+
 glib_dep = dependency('glib-2.0')
 gobject_dep = dependency('gobject-2.0')
 gtk_dep = dependency('gtk4')
@@ -11,7 +13,8 @@ src = ['giraffe.vala','chart.vala','pie.vala','bar.vala','line.vala','scatter.va
 giraffe_lib = library('giraffe4',
 					src,
 					install: true,
-					install_dir: ['lib', 'include', 'share/vala/vapi'],
+					install_dir: [true, true, true, true],
+					vala_gir: 'giraffe-4.gir',
 					dependencies:deps)
 giraffe_dep = declare_dependency(link_with: giraffe_lib, include_directories: include_directories('.'))
 
@@ -27,3 +30,4 @@ pkg.generate (
 	requires: ['glib-2.0','gobject-2.0','gtk4','cairo','gee-0.8'],
 	install_dir: join_paths(get_option('libdir'),'pkgconfig')
 	)
+

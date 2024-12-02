@@ -340,7 +340,7 @@ namespace Giraffe {
          * Adds a segment from a title and a percentage
          */
         [CCode (cname = "giraffe_pie_add_segment")]
-        public void add_segment(string title, float percentage) { // Used to add a segment
+        public PieSegment add_segment(string title, float percentage) { // Used to add a segment
             PieSegment ps = new PieSegment (title, percentage); // Creates a new Pie Segment
 
             ps.use_palette_color = true;
@@ -353,6 +353,8 @@ namespace Giraffe {
             ps.color.alpha = 1;
             segments.add (ps);
             redraw_canvas ();
+
+            return ps;
         }
 
         /**
@@ -387,7 +389,7 @@ namespace Giraffe {
          * Adds a segment from a title and a value
          */
         [CCode (cname = "giraffe_absolute_pie_add_segment")]
-        public new void add_segment(string title, float pie_value) {
+        public new PieSegment add_segment(string title, float pie_value) {
             PieSegment ps = new PieSegment (title, pie_value);
             this.hexpand = true;
             this.vexpand = true;
@@ -402,6 +404,8 @@ namespace Giraffe {
             max_val += pie_value;
             redraw_canvas ();
             colorn += 1;
+
+            return ps;
         }
 
         /**
