@@ -182,7 +182,7 @@ namespace Giraffe {
          */
         public Line add_line(string title) {
             Line line = Line ();
-            line.points = new ArrayList<GraphPoint>();
+            line.points = new ArrayList<GraphPoint?>();
             line.color = RGBA ();
             line.title = title;
             line.color.red = gnome_palette[colourn, 0] / 255f;
