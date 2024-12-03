@@ -18,6 +18,12 @@ giraffe_lib = library('giraffe4',
 					dependencies:deps)
 giraffe_dep = declare_dependency(link_with: giraffe_lib, include_directories: include_directories('.'))
 
+example = executable('example',
+	['examples/example/example.vala', 'giraffe.vala'],
+	install: false,
+	dependencies: deps + giraffe_dep
+)
+
 pkg = import('pkgconfig')
 
 pkg.generate (
@@ -31,3 +37,10 @@ pkg.generate (
 	install_dir: join_paths(get_option('libdir'),'pkgconfig')
 	)
 
+# g_ir_compiler = find_program('g-ir-compiler')	# Create a .typelib from the .gir so that we can be used from Python.
+# custom_target('giraffe4 typelib', command: [g_ir_compiler, '-l', 'libgiraffe4.so', '--output', '@OUTPUT@', '@INPUT@'],
+# 			input: meson.current_build_dir() / 'giraffe-4.gir',
+# 			output: 'giraffe-4.typelib',
+# 			depends: giraffe_lib,
+# 			install: true,
+# 			install_dir: get_option('libdir') / 'girepository-1.0')

@@ -63,98 +63,124 @@ namespace Giraffe {
      */
     [Description (nick = "A Pie Chart", blurb = "A simple Pie chart which you give percentages!")]
     [CCode (cname = "GiraffePie")]
-    public class Pie : DrawingArea {
+    public class Pie : Gtk.Box {
 
-        private Gtk.Grid part_description; // Information about the selected segment
-        /**
-         * The label is the description of the active pie segment.
-         */
-        protected Label part_description_label;
-        /**
-         * The label is the value/percentage of the active pie segment.
-         */
-        protected Label part_description_value_label;
-        /**
-         * A small drawing area to contain the colour of the active pie segment
-         */
-        private DrawingArea part_description_area;
-
-        /**
-         * This is the value which the pie chart is out of. This is always 100 in the base class.
-         */
         public double max_val { get; protected set; }
-        /**
-         * The number of the segment hovered.
-         *
-         * Mainly used for internal workings but i guess it could be helpful.
-         */
         public int ? segment_hovered;
-        /**
-         * A number to select a colour.
-         */
         protected int colorn;
         private int radius;
-        /**
-         * An arraylist of all the segments.
-         */
-        public ArrayList<PieSegment ? > segments;
-        /**
-         * Should the pie chart use a gradient
-         */
+        public ArrayList<PieSegment> segments;
         public bool use_gradient { get; set; default = true; }
-
+    
         public EventControllerMotion motion_controller;
-
+        protected Gtk.DrawingArea da;
+        
+        public delegate Gtk.Widget CreatePopoverContents(PieSegment segmt);
+        public CreatePopoverContents popover_contents_fn { get; set; default = null; }
+        
+        public bool frame_instead_of_popover { get; set; default = false; }
+        protected Frame frame;
         protected Popover popover;
-        /**
-         * Creates a new Pie from no arguments
-         */
-        public Pie () {
-            Object ();
-        }
 
+        protected int popover_segmt { get; set; default = -1; }
+    
         construct
         {
+            orientation = Gtk.Orientation.HORIZONTAL;
+            spacing = 8;
+
+            vexpand = true;
+    
             this.max_val = 100;
+    
+            this.da = new Gtk.DrawingArea() {
+                hexpand = true,
+                vexpand = true,
+                width_request = 160,
+                height_request = 160
+            };
+            this.da.set_draw_func(draw);
+            this.append(da);
+    
             motion_controller = new EventControllerMotion ();
-            this.add_controller (motion_controller);
             this.motion_controller.motion.connect (draw_motion_notify_event);
             this.motion_controller.leave.connect (() => popover.popdown ());
-            this.width_request = 64;
-            this.height_request = 64;
+            this.da.add_controller (motion_controller);
+    
+            this.segments = new ArrayList<PieSegment>();
+    
+            this.popover = new Popover () {
+                autohide = false
+            };
+            this.popover.set_parent(this);
 
-            this.segments = new ArrayList<PieSegment ? >();
-
-            {
-                popover = new Popover ();
-                popover.set_parent (this);
-                popover.autohide = false;
-
-                part_description = new Grid (); // Creates a box to store information about the segment
-                part_description.row_homogeneous = true;
-                part_description.column_homogeneous = true;
-
-
-                part_description_label = new Label (""); // Creates a label
-                part_description_label.ellipsize = END;
-                part_description_value_label = new Label ("");
-                part_description_label.justify = CENTER;
-
-                part_description_area = new DrawingArea (); // Creates a Drawing Area
-                part_description_area.set_draw_func (part_description_area_draw_func);
-                part_description_area.show ();
-
-                part_description_value_label.hexpand = true;
-                part_description_area.hexpand = true;
-
-                part_description.attach (part_description_label, 0, 0, 2, 1); // Adds the widgets to the box
-                part_description.attach (part_description_value_label, 0, 1, 1, 1);
-                part_description.attach (part_description_area, 1, 1, 1, 1);
-                popover.set_child (part_description);
-            }
-            hexpand = true;
-            vexpand = true;
-            this.set_draw_func (draw);
+            this.frame = new Frame(null) {
+                hexpand = false,
+                vexpand = false,
+                valign = Gtk.Align.CENTER,
+                halign = Gtk.Align.END,
+                width_request = 160
+            };
+            this.append(this.frame);
+            this.bind_property("frame-instead-of-popover", frame, "visible", BindingFlags.SYNC_CREATE);
+            this.bind_property("frame-instead-of-popover", this, "hexpand", BindingFlags.SYNC_CREATE);
+    
+            this.notify["popover-segmt"].connect(() => {
+                if (!frame_instead_of_popover)
+                {
+                    if (this.popover_segmt == -1)
+                        this.popover.hide ();
+                    else {
+                        // Position
+                        var rect = Gdk.Rectangle () {
+                            width = 1,
+                            height = 1
+                        };
+        
+                        // Calculate x and y
+                        for (double i = 0, running_total = 0; i < this.segments.size; i++)
+                        {
+                            var segmt = this.segments[(int) i];
+        
+                            if (i == this.popover_segmt)
+                            {
+                                rect.x = (int) (cos ((((running_total + running_total + segmt.val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_width() / 2);
+                                rect.y = (int) (sin ((((running_total + running_total + segmt.val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_height() / 2);
+        
+                                break;
+                            }
+        
+                            running_total += segmt.val;
+                        }
+        
+                        this.popover.pointing_to = rect;
+        
+                        // Contents
+                        this.popover.child = this.popover_contents_fn(this.segments[this.popover_segmt]);
+        
+                        this.popover.popup();
+                    }
+                }
+                else
+                {
+                    if (this.popover_segmt != -1)
+                        this.frame.child = this.popover_contents_fn(this.segments[this.popover_segmt]);
+                        this.frame.child.halign = Gtk.Align.CENTER;
+                        this.frame.child.valign = Gtk.Align.CENTER;
+                }
+            });
+    
+            this.popover_contents_fn = (segmt) => {
+                var g = new Gtk.Grid();
+    
+                var l1 = new Gtk.Label(segmt.title);
+                g.attach(l1, 0, 0);
+    
+                var l2 = new Gtk.Label(@"$(segmt.val)%");
+                g.attach(l2, 0, 1);
+    
+                return g;
+            };
         }
         protected void part_description_area_draw_func(DrawingArea da, Context cr, int width, int height) {
             cr.rectangle ((width / 2) - 8, 0, 16, 16); // Creates a rectangle
@@ -169,7 +195,7 @@ namespace Giraffe {
                         );
                 } else {
                     Pattern pattern = new Pattern.linear (0, (height / 2) - radius, 0, (height / 2) + radius);
-
+    
                     RGBA[] colors = get_colours_from_number (ps.palette_color);
                     pattern.add_color_stop_rgb (0,
                                                 colors[0].red,
@@ -189,28 +215,28 @@ namespace Giraffe {
                 cr.set_source_rgba (0, 0, 0, 0);
             }
             cr.fill (); // Fills the rectangles
-
+    
         }
-
+    
         protected void draw(DrawingArea da, Context cr, int width, int height) {
             // These variables
             double start_x;
             double start_y;
-
+    
             radius = width / 2;
             if ( height / 2 < radius ) radius = height / 2;
-
+    
             start_x = width / 2;
             start_y = height / 2;
-
+    
             double running_total = 0;
-
+    
             foreach ( PieSegment ps in segments ) {
                 // print ("Colour:\t%f\t%f\t%f\t%f\n",ps.color.red,ps.color.blue,ps.color.green,ps.color.alpha);
                 // Sets the color for the pie-segment
                 if ( use_gradient ) {
                     Pattern pattern = new Pattern.linear (0, (height / 2) - radius, 0, height / 2);
-
+    
                     RGBA[] colors = get_colours_from_number (ps.palette_color);
                     pattern.add_color_stop_rgb (0,
                                                 colors[0].red,
@@ -236,24 +262,24 @@ namespace Giraffe {
                         radius,
                         (running_total / max_val) * Math.PI * 2,
                         ((ps.val + running_total) / max_val) * Math.PI * 2
-
+    
                         );
-
+    
                 cr.line_to (start_x, start_y); // Goes to the center of the arc
                 cr.fill (); // Fills the arc
-
+    
                 running_total += ps.val; // Increases the running total
             }
         }
-
+    
         private void draw_motion_notify_event(Gtk.EventControllerMotion ecm, double rx, double ry) {
-
+    
             double x = rx; // Gets the mouse position X
             double y = ry; // Gets the mouse position Y
-
-            x -= this.get_allocated_width () / 2;
-            y -= this.get_allocated_height () / 2;
-
+    
+            x -= this.da.get_allocated_width () / 2;
+            y -= this.da.get_allocated_height () / 2;
+    
             double distance = pow ((pow (x, 2) + pow (y, 2)), 0.5); // Gets the distance away from the center of the pie
             double rot = fmod (((atan2 (y, x) / PI) + 2) * (max_val / 2), max_val); // Gets the rotation (out of the maximum value)
             double running_total = 0; // Running total of the pie
@@ -261,74 +287,28 @@ namespace Giraffe {
                 int n = 0; // Which pie segment we are on
                 foreach ( PieSegment ps in segments ) {
                     if ( rot > running_total && rot < running_total + ps.val ) {
-                        segment_hovered = n; // Sets the hovered segment (used for labels)
-                        part_description_area.hide (); // Hides and shows the chart to redraw
-                        part_description_area.show (); /// Yes i know there is a better way to do this but :D
-                        part_description_label.set_text ("%s".printf (ps.title));
-
-                        if ( !popover.visible ) popover.popup ();
-                        Gdk.Rectangle pointing_to = Gdk.Rectangle (); // Creates a rectangle so we know where to point!
-                        pointing_to.width = 1;
-                        pointing_to.height = 1;
-                        int w = get_allocated_width ();
-                        int h = get_allocated_height ();
-                        pointing_to.x = (int) (cos ((((running_total + running_total + ps.val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (w / 2);
-                        pointing_to.y = (int) (sin ((((running_total + running_total + ps.val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (h / 2);
-
-                        popover.pointing_to = pointing_to;
+                        if (this.popover_segmt != n)
+                            this.popover_segmt = n;
                     }
                     running_total += ps.val;
                     n++;
                 }
             } else {
-                popover.hide ();
-                part_description_value_label.set_text ("");
-                segment_hovered = null;
-                part_description_area.hide (); // Hides and shows the chart to redraw
-                part_description_area.show (); /// Yes i know there is a better way to do this but :D
-            }
-            set_part_description_value ();
-        }
-
-        /**
-         * Used to set the value on the popover.
-         *
-         * You will not need to access it unless you are inheriting.
-         */
-        protected virtual void set_part_description_value() {
-            if ( segment_hovered == null ) // If a segment is not hovered
-                part_description_label.set_text (""); // The set the text to nothing
-            else {
-                PieSegment ps = segments[segment_hovered];
-                part_description_value_label.set_text ("%s%%".printf (ps.val.to_string ()));
+                if (this.popover_segmt != -1)
+                    this.popover_segmt = -1;
             }
         }
-
-        /**
-         * Gets a segment from its place in the list.
-         *
-         * Can be used with {@link segment_hovered}.
-         */
-        [CCode (cname = "giraffe_pie_get_segment")]
+        
         public PieSegment ? get_segment (int n) // Used to get a segment
         {
             return (segments[n]);
         }
-
-        /**
-         * Removes a segment from its place in the list.
-         *
-         * Can be used with {@link segment_hovered}.
-         */
-        [CCode (cname = "giraffe_pie_remove_segment")]
+    
+        
         public void remove_segment(int n) { // Used to remove a segment
             segments.remove_at (n); redraw_canvas ();
         }
-
-        /**
-         * Gets a segment from it's title. Returns the first one it finds.
-         */
-        [CCode (cname = "giraffe_pie_get_segment_from_title")]
+        
         public PieSegment ? get_segment_from_title (string title) // Used to get a segment from a title
         {
             foreach ( PieSegment ps in segments )
@@ -336,60 +316,58 @@ namespace Giraffe {
                     return (ps);
             return null;
         }
-        /**
-         * Adds a segment from a title and a percentage
-         */
-        [CCode (cname = "giraffe_pie_add_segment")]
-        public PieSegment add_segment(string title, float percentage) { // Used to add a segment
+        
+        public void add_segment(string title, float percentage) { // Used to add a segment
             PieSegment ps = new PieSegment (title, percentage); // Creates a new Pie Segment
-
+    
             ps.use_palette_color = true;
             ps.palette_color = colorn;
             colorn++;
-
+    
             ps.color.red = gnome_palette[colorn, 0] / 255f; // Sets the color
             ps.color.blue = gnome_palette[colorn, 1] / 255f;
             ps.color.green = gnome_palette[colorn, 2] / 255f;
             ps.color.alpha = 1;
-            segments.add (ps);
+            segments.add (ps); ps.ref();
             redraw_canvas ();
-
-            return ps;
         }
-
-        /**
-         * Redraws the Pie Chart
-         */
-        [CCode (cname = "giraffe_pie_redraw_canvas")]
+    
+        
         protected void redraw_canvas() {
             // Redraw the Cairo canvas completely by exposing it
             this.hide ();
             this.show ();
         }
-
+    
     }
+    
     [Description (nick = "A Pie using absolute values", blurb = "Use this pie chart if you want the values to constantly change, rather than using percentages")]
     [CCode (cname = "GiraffeAbsolutePie")]
     public class AbsolutePie : Pie {
-        public AbsolutePie () {
-            base ();
+        construct {
             max_val = 0;
-        }
 
-        protected override void set_part_description_value() {
-            if ( segment_hovered == null )
-                this.part_description_label.set_text ("");
-            else {
-                PieSegment ps = segments[segment_hovered];
-                this.part_description_value_label.set_text ("%s\t%.1f%%".printf (ps.val.to_string (), (100 * ps.val / max_val)));
-            }
+            this.popover_contents_fn = (segmt) => {
+                var g = new Gtk.Grid();
+    
+                var l1 = new Gtk.Label(segmt.title);
+                g.attach(l1, 0, 0);
+    
+                var l2 = new Gtk.Label(@"$(segmt.val)");
+                g.attach(l2, 0, 1);
+
+                var l3 = new Gtk.Label("(%.2f%%)".printf((segmt.val / max_val) * 100));
+                g.attach(l3, 0, 2);
+
+                return g;
+            };
         }
 
         /**
          * Adds a segment from a title and a value
          */
         [CCode (cname = "giraffe_absolute_pie_add_segment")]
-        public new PieSegment add_segment(string title, float pie_value) {
+        public new void add_segment(string title, float pie_value) {
             PieSegment ps = new PieSegment (title, pie_value);
             this.hexpand = true;
             this.vexpand = true;
@@ -404,8 +382,6 @@ namespace Giraffe {
             max_val += pie_value;
             redraw_canvas ();
             colorn += 1;
-
-            return ps;
         }
 
         /**

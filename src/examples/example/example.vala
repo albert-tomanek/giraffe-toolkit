@@ -23,8 +23,7 @@
 
 // Hello this is just a learning file, using results from the 2019 general elections
 
-using Giraffe, Gtk;
-
+using Giraffe, Cairo, Gee, Gtk, Gdk, Math;
 
 public static int main(string[] args) {
     var app = new Gtk.Application ("org.giraffe.example", GLib.ApplicationFlags.FLAGS_NONE);
@@ -43,7 +42,7 @@ public static int main(string[] args) {
         absolute_pie.add_segment ("Other", 15);
 
 
-        Pie pie = new Pie ();
+        Pie pie = new Pie () { frame_instead_of_popover = true };
         pie.add_segment ("Tory", 56.153846154f);
         pie.add_segment ("Labour", 31.230769231f);
         pie.add_segment ("Scottish National Party", 7.384615385f);
