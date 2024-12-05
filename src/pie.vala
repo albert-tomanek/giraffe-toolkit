@@ -28,33 +28,31 @@ namespace Giraffe {
      * Note does not provide a widget on its own: but provides data for the {@link Pie} and {@link AbsolutePie}.
      */
     [CCode (cname = "GirrafePieSegment")]
-    public class PieSegment : Object {
-        /** The title of the segment. */
-        public string title { get; set construct; default = null; }
+    public interface PieSegment : Object {
         /**
          * The value of the segment. Either a percentage when using {@link Pie}
          * or a absolute (when using {@link AbsolutePie})
          */
-        public double val { get; set construct; default = 0; }
-        /**
-         * The colour the segment will appear.
-         */
-        public RGBA color;
-        /**
-         * Wether to use a default colour or not.
-         */
-        public bool use_palette_color { set; get; default = true; }
-        /**
-         * If {@link use_palette_color} then the number from the palette
-         */
-        public int palette_color;
-        public PieSegment (string title, double val) {
-            Object (title: title, val: val);
-        }
+        public abstract double segmt_val { get; set construct; }    // TODO: Make it respond to changes
+        public abstract int segmt_color_n { get; set; }
 
-        construct
+        public virtual RGBA get_segmt_color(RGBA suggested_color, int index_within_gradient)   // A rudimentary way to be able to set your own colours, that supports gradients too.
         {
-            color = RGBA ();
+            return suggested_color;
+        }
+    }
+
+    public class NamedPieSegment : PieSegment, Object
+    {
+        public override double segmt_val { get; set construct; default = 0; }
+        public override int segmt_color_n { get; set; }
+
+        /** The title of the segment. */
+        public string title { get; set construct; default = null; }
+
+        public NamedPieSegment(string name, double val)
+        {
+            Object(title: name, segmt_val: val);
         }
     }
 
@@ -75,12 +73,11 @@ namespace Giraffe {
         public EventControllerMotion motion_controller;
         protected Gtk.DrawingArea da;
         
-        public delegate Gtk.Widget CreatePopoverContents(PieSegment segmt);
-        public CreatePopoverContents popover_contents_fn { get; set; default = null; }
+        public signal Gtk.Widget need_popover_contents(PieSegment segmt);
         
         public bool frame_instead_of_popover { get; set; default = false; }
-        protected Frame frame;
-        protected Popover popover;
+        public Frame frame;
+        public Popover popover;
 
         protected int popover_segmt { get; set; default = -1; }
     
@@ -144,19 +141,19 @@ namespace Giraffe {
         
                             if (i == this.popover_segmt)
                             {
-                                rect.x = (int) (cos ((((running_total + running_total + segmt.val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_width() / 2);
-                                rect.y = (int) (sin ((((running_total + running_total + segmt.val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_height() / 2);
+                                rect.x = (int) (cos ((((running_total + running_total + segmt.segmt_val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_width() / 2);
+                                rect.y = (int) (sin ((((running_total + running_total + segmt.segmt_val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_height() / 2);
         
                                 break;
                             }
         
-                            running_total += segmt.val;
+                            running_total += segmt.segmt_val;
                         }
         
                         this.popover.pointing_to = rect;
         
                         // Contents
-                        this.popover.child = this.popover_contents_fn(this.segments[this.popover_segmt]);
+                        this.popover.child = this.need_popover_contents(this.segments[this.popover_segmt]);
         
                         this.popover.popup();
                     }
@@ -164,51 +161,51 @@ namespace Giraffe {
                 else
                 {
                     if (this.popover_segmt != -1)
-                        this.frame.child = this.popover_contents_fn(this.segments[this.popover_segmt]);
+                        this.frame.child = this.need_popover_contents(this.segments[this.popover_segmt]);
                         this.frame.child.halign = Gtk.Align.CENTER;
                         this.frame.child.valign = Gtk.Align.CENTER;
                 }
             });
     
-            this.popover_contents_fn = (segmt) => {
+            this.need_popover_contents.connect((segmt) => {
                 var g = new Gtk.Grid();
     
-                var l1 = new Gtk.Label(segmt.title);
+                var l1 = new Gtk.Label((segmt as NamedPieSegment)?.title);
                 g.attach(l1, 0, 0);
     
-                var l2 = new Gtk.Label(@"$(segmt.val)%");
+                var l2 = new Gtk.Label(@"$(segmt.segmt_val)%");
                 g.attach(l2, 0, 1);
     
                 return g;
-            };
+            });
         }
         protected void part_description_area_draw_func(DrawingArea da, Context cr, int width, int height) {
             cr.rectangle ((width / 2) - 8, 0, 16, 16); // Creates a rectangle
             if ( segment_hovered != null ) { // Checks if a segment is actually installed
                 PieSegment ps = segments[segment_hovered];
-                if ( !(use_gradient && ps.use_palette_color)) {
-                    // Sets the source color to the color of the hovered segment
+
+                if (!use_gradient) {
+                    var ps_color = ps.get_segmt_color(get_colours_from_number(ps.segmt_color_n)[0], 0);
                     cr.set_source_rgb (
-                        ps.color.red,
-                        ps.color.blue,
-                        ps.color.green
-                        );
+                        ps_color.red,
+                        ps_color.blue,
+                        ps_color.green
+                    );
                 } else {
                     Pattern pattern = new Pattern.linear (0, (height / 2) - radius, 0, (height / 2) + radius);
     
-                    RGBA[] colors = get_colours_from_number (ps.palette_color);
-                    pattern.add_color_stop_rgb (0,
-                                                colors[0].red,
-                                                colors[0].blue,
-                                                colors[0].green);
-                    pattern.add_color_stop_rgb (0.5,
-                                                colors[1].red,
-                                                colors[1].blue,
-                                                colors[1].green);
-                    pattern.add_color_stop_rgb (1,
-                                                colors[2].red,
-                                                colors[2].blue,
-                                                colors[2].green);
+                    RGBA[] gradient_colors = get_colours_from_number (ps.segmt_color_n);
+                    RGBA current;
+
+                    current = ps.get_segmt_color(gradient_colors[0], 0);
+                    pattern.add_color_stop_rgb (0, current.red, current.blue, current.green);
+
+                    current = ps.get_segmt_color(gradient_colors[1], 1);
+                    pattern.add_color_stop_rgb (0.5, current.red, current.blue, current.green);
+
+                    current = ps.get_segmt_color(gradient_colors[2], 2);
+                    pattern.add_color_stop_rgb (1, current.red, current.blue, current.green);
+
                     cr.set_source (pattern);
                 }
             } else {
@@ -237,38 +234,40 @@ namespace Giraffe {
                 if ( use_gradient ) {
                     Pattern pattern = new Pattern.linear (0, (height / 2) - radius, 0, height / 2);
     
-                    RGBA[] colors = get_colours_from_number (ps.palette_color);
-                    pattern.add_color_stop_rgb (0,
-                                                colors[0].red,
-                                                colors[0].blue,
-                                                colors[0].green);
-                    pattern.add_color_stop_rgb (0.5,
-                                                colors[1].red,
-                                                colors[1].blue,
-                                                colors[1].green);
-                    pattern.add_color_stop_rgb (1,
-                                                colors[2].red,
-                                                colors[2].blue,
-                                                colors[2].green);
+                    RGBA[] gradient_colors = get_colours_from_number (ps.segmt_color_n);
+                    RGBA current;
+
+                    current = ps.get_segmt_color(gradient_colors[0], 0);
+                    pattern.add_color_stop_rgb (0, current.red, current.blue, current.green);
+
+                    current = ps.get_segmt_color(gradient_colors[1], 1);
+                    pattern.add_color_stop_rgb (0.5, current.red, current.blue, current.green);
+
+                    current = ps.get_segmt_color(gradient_colors[2], 2);
+                    pattern.add_color_stop_rgb (1, current.red, current.blue, current.green);
+                    
                     cr.set_source (pattern);
                 } else {
-                    cr.set_source_rgba (ps.color.red, ps.color.blue,
-                                        ps.color.green,
-                                        ps.color.alpha
-                                        );
+                    var ps_color = ps.get_segmt_color(get_colours_from_number(ps.segmt_color_n)[0], 0);
+                    cr.set_source_rgba (
+                        ps_color.red,
+                        ps_color.blue,
+                        ps_color.green,
+                        ps_color.alpha
+                    );
                 }
                 // Creates the pie-segment
                 cr.arc (start_x, start_y,
                         radius,
                         (running_total / max_val) * Math.PI * 2,
-                        ((ps.val + running_total) / max_val) * Math.PI * 2
+                        ((ps.segmt_val + running_total) / max_val) * Math.PI * 2
     
                         );
     
                 cr.line_to (start_x, start_y); // Goes to the center of the arc
                 cr.fill (); // Fills the arc
     
-                running_total += ps.val; // Increases the running total
+                running_total += ps.segmt_val; // Increases the running total
             }
         }
     
@@ -286,11 +285,11 @@ namespace Giraffe {
             if ( distance < radius ) {
                 int n = 0; // Which pie segment we are on
                 foreach ( PieSegment ps in segments ) {
-                    if ( rot > running_total && rot < running_total + ps.val ) {
+                    if ( rot > running_total && rot < running_total + ps.segmt_val ) {
                         if (this.popover_segmt != n)
                             this.popover_segmt = n;
                     }
-                    running_total += ps.val;
+                    running_total += ps.segmt_val;
                     n++;
                 }
             } else {
@@ -309,26 +308,23 @@ namespace Giraffe {
             segments.remove_at (n); redraw_canvas ();
         }
         
-        public PieSegment ? get_segment_from_title (string title) // Used to get a segment from a title
+        public NamedPieSegment? get_segment_from_title (string title) // Used to get a segment from a title
         {
-            foreach ( PieSegment ps in segments )
-                if ( ps.title == name )
-                    return (ps);
+            foreach (var ps in segments)
+            {
+                var nps = ps as NamedPieSegment;
+                if (nps != null)
+                    if ( nps.title == name )
+                        return (nps);
+            }
             return null;
         }
         
-        public void add_segment(string title, float percentage) { // Used to add a segment
-            PieSegment ps = new PieSegment (title, percentage); // Creates a new Pie Segment
-    
-            ps.use_palette_color = true;
-            ps.palette_color = colorn;
+        public void add_segment(PieSegment ps) { // Used to add a segment
+            ps.segmt_color_n = colorn;
             colorn++;
     
-            ps.color.red = gnome_palette[colorn, 0] / 255f; // Sets the color
-            ps.color.blue = gnome_palette[colorn, 1] / 255f;
-            ps.color.green = gnome_palette[colorn, 2] / 255f;
-            ps.color.alpha = 1;
-            segments.add (ps); ps.ref();
+            segments.add (ps);
             redraw_canvas ();
         }
     
@@ -347,39 +343,32 @@ namespace Giraffe {
         construct {
             max_val = 0;
 
-            this.popover_contents_fn = (segmt) => {
+            this.need_popover_contents.connect((segmt) => {
                 var g = new Gtk.Grid();
     
-                var l1 = new Gtk.Label(segmt.title);
+                var l1 = new Gtk.Label((segmt as NamedPieSegment)?.title);
                 g.attach(l1, 0, 0);
     
-                var l2 = new Gtk.Label(@"$(segmt.val)");
+                var l2 = new Gtk.Label(@"$(segmt.segmt_val)");
                 g.attach(l2, 0, 1);
 
-                var l3 = new Gtk.Label("(%.2f%%)".printf((segmt.val / max_val) * 100));
+                var l3 = new Gtk.Label("(%.2f%%)".printf((segmt.segmt_val / max_val) * 100));
                 g.attach(l3, 0, 2);
 
                 return g;
-            };
+            });
         }
 
         /**
          * Adds a segment from a title and a value
          */
         [CCode (cname = "giraffe_absolute_pie_add_segment")]
-        public new void add_segment(string title, float pie_value) {
-            PieSegment ps = new PieSegment (title, pie_value);
+        public new void add_segment(PieSegment ps) {
             this.hexpand = true;
             this.vexpand = true;
-            ps.color = RGBA ();
-            ps.color.red = gnome_palette[colorn, 0] / 255f;
-            ps.color.blue = gnome_palette[colorn, 1] / 255f;
-            ps.color.green = gnome_palette[colorn, 2] / 255f;
-            ps.color.alpha = 1;
             segments.add (ps);
-            ps.use_palette_color = true;
-            ps.palette_color = colorn;
-            max_val += pie_value;
+            ps.segmt_color_n = colorn;
+            max_val += ps.segmt_val;
             redraw_canvas ();
             colorn += 1;
         }

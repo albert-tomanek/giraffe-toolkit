@@ -34,21 +34,21 @@ public static int main(string[] args) {
         Grid grid = new Grid ();
 
         AbsolutePie absolute_pie = new AbsolutePie ();
-        absolute_pie.add_segment ("Tory", 365);
-        absolute_pie.add_segment ("Labour", 203);
-        absolute_pie.add_segment ("Scottish National Party", 48);
-        absolute_pie.add_segment ("LibDems", 11);
-        absolute_pie.add_segment ("DUP", 8);
-        absolute_pie.add_segment ("Other", 15);
+        absolute_pie.add_segment(new NamedPieSegment("Tory", 365));
+        absolute_pie.add_segment(new NamedPieSegment("Labour", 203));
+        absolute_pie.add_segment(new NamedPieSegment("Scottish National Party", 48));
+        absolute_pie.add_segment(new NamedPieSegment("LibDems", 11));
+        absolute_pie.add_segment(new NamedPieSegment("DUP", 8));
+        absolute_pie.add_segment(new NamedPieSegment("Other", 15));
 
 
         Pie pie = new Pie () { frame_instead_of_popover = true };
-        pie.add_segment ("Tory", 56.153846154f);
-        pie.add_segment ("Labour", 31.230769231f);
-        pie.add_segment ("Scottish National Party", 7.384615385f);
-        pie.add_segment ("Lib Dem", 1.692307692f);
-        pie.add_segment ("DUP", 1.230769231f);
-        pie.add_segment ("Other", 2.307692308f);
+        pie.add_segment(new NamedPieSegment("Tory", 56.153846154f));
+        pie.add_segment(new NamedPieSegment("Labour", 31.230769231f));
+        pie.add_segment(new NamedPieSegment("Scottish National Party", 7.384615385f));
+        pie.add_segment(new NamedPieSegment("Lib Dem", 1.692307692f));
+        pie.add_segment(new NamedPieSegment("DUP", 1.230769231f));
+        pie.add_segment(new NamedPieSegment("Other", 2.307692308f));
 
 
         BarChart barchart = new BarChart ("Boiling Points Of the Halogens", "Element", "Boiling Point (°C)");

@@ -37,10 +37,10 @@ pkg.generate (
 	install_dir: join_paths(get_option('libdir'),'pkgconfig')
 	)
 
-# g_ir_compiler = find_program('g-ir-compiler')	# Create a .typelib from the .gir so that we can be used from Python.
-# custom_target('giraffe4 typelib', command: [g_ir_compiler, '-l', 'libgiraffe4.so', '--output', '@OUTPUT@', '@INPUT@'],
-# 			input: meson.current_build_dir() / 'giraffe-4.gir',
-# 			output: 'giraffe-4.typelib',
-# 			depends: giraffe_lib,
-# 			install: true,
-# 			install_dir: get_option('libdir') / 'girepository-1.0')
+g_ir_compiler = find_program('g-ir-compiler')	# Create a .typelib from the .gir so that we can be used from Python.
+custom_target('giraffe4 typelib', command: [g_ir_compiler, '-l', 'libgiraffe4.so', '--output', '@OUTPUT@', '@INPUT@'],
+			input: meson.current_build_dir() / 'giraffe-4.gir',
+			output: 'giraffe-4.typelib',
+			depends: giraffe_lib,
+			install: true,
+			install_dir: get_option('libdir') / 'girepository-1.0')
