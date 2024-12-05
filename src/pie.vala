@@ -67,7 +67,7 @@ namespace Giraffe {
         public int ? segment_hovered;
         protected int colorn;
         private int radius;
-        public ArrayList<PieSegment> segments;
+        public ListModel segments { get; construct; }   // Must not be null
         public bool use_gradient { get; set; default = true; }
     
         public EventControllerMotion motion_controller;
@@ -79,15 +79,21 @@ namespace Giraffe {
         public Frame frame;
         public Popover popover;
 
-        protected int popover_segmt { get; set; default = -1; }
+        public PieSegment? popover_segmt { get; private set; default = null; }
+
+        public Pie(ListModel segments)
+        {
+            Object(segments: segments);
+        }
     
         construct
         {
+            /* Box stuff */
             orientation = Gtk.Orientation.HORIZONTAL;
             spacing = 8;
-
             vexpand = true;
-    
+
+            /* Us stuff */
             this.max_val = 100;
     
             this.da = new Gtk.DrawingArea() {
@@ -104,7 +110,19 @@ namespace Giraffe {
             this.motion_controller.leave.connect (() => popover.popdown ());
             this.da.add_controller (motion_controller);
     
-            this.segments = new ArrayList<PieSegment>();
+            this.segments.items_changed.connect((pos, removed, added) => {  // FIXME: If `this.segments` gets swapped out, the old listener will still exist afaik.
+                this.colorn -= (int) removed;
+                for (int i = 0; i < added; i++)     // Remember, more segments may have been added at once.
+                    get_segment(pos + i).segmt_color_n = this.colorn++;
+
+                this.redraw_canvas();
+            });
+            this.notify["segments"].connect(() => {     // You can even swap out the list of segments in real time!
+                assert (this.segments.get_item_type().is_a(typeof(PieSegment)));
+                this.redraw_canvas();
+                this.popover_segmt = null;
+                //  this.max_val = 0;
+            });
     
             this.popover = new Popover () {
                 autohide = false
@@ -125,7 +143,7 @@ namespace Giraffe {
             this.notify["popover-segmt"].connect(() => {
                 if (!frame_instead_of_popover)
                 {
-                    if (this.popover_segmt == -1)
+                    if (this.popover_segmt == null)
                         this.popover.hide ();
                     else {
                         // Position
@@ -135,11 +153,11 @@ namespace Giraffe {
                         };
         
                         // Calculate x and y
-                        for (double i = 0, running_total = 0; i < this.segments.size; i++)
+                        for (double i = 0, running_total = 0; i < this.segments.get_n_items(); i++)
                         {
-                            var segmt = this.segments[(int) i];
+                            var segmt = get_segment((uint) i);
         
-                            if (i == this.popover_segmt)
+                            if (segmt == this.popover_segmt)
                             {
                                 rect.x = (int) (cos ((((running_total + running_total + segmt.segmt_val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_width() / 2);
                                 rect.y = (int) (sin ((((running_total + running_total + segmt.segmt_val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_height() / 2);
@@ -153,20 +171,21 @@ namespace Giraffe {
                         this.popover.pointing_to = rect;
         
                         // Contents
-                        this.popover.child = this.need_popover_contents(this.segments[this.popover_segmt]);
+                        this.popover.child = this.need_popover_contents(this.popover_segmt);
         
                         this.popover.popup();
                     }
                 }
                 else
                 {
-                    if (this.popover_segmt != -1)
-                        this.frame.child = this.need_popover_contents(this.segments[this.popover_segmt]);
+                    if (this.popover_segmt != null)
+                        this.frame.child = this.need_popover_contents(this.popover_segmt);
                         this.frame.child.halign = Gtk.Align.CENTER;
                         this.frame.child.valign = Gtk.Align.CENTER;
                 }
             });
-    
+            
+            // Default popover contents
             this.need_popover_contents.connect((segmt) => {
                 var g = new Gtk.Grid();
     
@@ -182,7 +201,7 @@ namespace Giraffe {
         protected void part_description_area_draw_func(DrawingArea da, Context cr, int width, int height) {
             cr.rectangle ((width / 2) - 8, 0, 16, 16); // Creates a rectangle
             if ( segment_hovered != null ) { // Checks if a segment is actually installed
-                PieSegment ps = segments[segment_hovered];
+                PieSegment ps = get_segment(segment_hovered);
 
                 if (!use_gradient) {
                     var ps_color = ps.get_segmt_color(get_colours_from_number(ps.segmt_color_n)[0], 0);
@@ -227,8 +246,10 @@ namespace Giraffe {
             start_y = height / 2;
     
             double running_total = 0;
-    
-            foreach ( PieSegment ps in segments ) {
+            
+            for (uint i = 0; i < this.segments.get_n_items(); i++) {
+                var ps = get_segment(i);
+
                 // print ("Colour:\t%f\t%f\t%f\t%f\n",ps.color.red,ps.color.blue,ps.color.green,ps.color.alpha);
                 // Sets the color for the pie-segment
                 if ( use_gradient ) {
@@ -256,14 +277,14 @@ namespace Giraffe {
                         ps_color.alpha
                     );
                 }
+
                 // Creates the pie-segment
                 cr.arc (start_x, start_y,
-                        radius,
-                        (running_total / max_val) * Math.PI * 2,
-                        ((ps.segmt_val + running_total) / max_val) * Math.PI * 2
-    
-                        );
-    
+                    radius,
+                    (running_total / max_val) * Math.PI * 2,
+                    ((ps.segmt_val + running_total) / max_val) * Math.PI * 2
+                );
+
                 cr.line_to (start_x, start_y); // Goes to the center of the arc
                 cr.fill (); // Fills the arc
     
@@ -284,51 +305,38 @@ namespace Giraffe {
             double running_total = 0; // Running total of the pie
             if ( distance < radius ) {
                 int n = 0; // Which pie segment we are on
-                foreach ( PieSegment ps in segments ) {
+                for (uint i = 0; i < this.segments.get_n_items(); i++) {
+                    var ps = get_segment(i);
+    
                     if ( rot > running_total && rot < running_total + ps.segmt_val ) {
-                        if (this.popover_segmt != n)
-                            this.popover_segmt = n;
+                        if (this.popover_segmt != ps)
+                            this.popover_segmt = ps;
                     }
                     running_total += ps.segmt_val;
                     n++;
                 }
             } else {
-                if (this.popover_segmt != -1)
-                    this.popover_segmt = -1;
+                if (this.popover_segmt != null)
+                    this.popover_segmt = null;
             }
         }
         
-        public PieSegment ? get_segment (int n) // Used to get a segment
+        public PieSegment? get_segment (uint n) // Used to get a segment
         {
-            return (segments[n]);
+            return this.segments.get_item(n) as PieSegment;
         }
-    
-        
-        public void remove_segment(int n) { // Used to remove a segment
-            segments.remove_at (n); redraw_canvas ();
-        }
-        
+                
         public NamedPieSegment? get_segment_from_title (string title) // Used to get a segment from a title
         {
-            foreach (var ps in segments)
-            {
-                var nps = ps as NamedPieSegment;
+            for (uint i = 0; i < this.segments.get_n_items(); i++) {
+                var nps = get_segment(i) as NamedPieSegment;
                 if (nps != null)
                     if ( nps.title == name )
                         return (nps);
             }
             return null;
         }
-        
-        public void add_segment(PieSegment ps) { // Used to add a segment
-            ps.segmt_color_n = colorn;
-            colorn++;
-    
-            segments.add (ps);
-            redraw_canvas ();
-        }
-    
-        
+                
         protected void redraw_canvas() {
             // Redraw the Cairo canvas completely by exposing it
             this.hide ();
@@ -340,8 +348,19 @@ namespace Giraffe {
     [Description (nick = "A Pie using absolute values", blurb = "Use this pie chart if you want the values to constantly change, rather than using percentages")]
     [CCode (cname = "GiraffeAbsolutePie")]
     public class AbsolutePie : Pie {
+        public AbsolutePie(ListModel segments)
+        {
+            Object(segments: segments);
+        }
+
         construct {
-            max_val = 0;
+            this.max_val = 0;
+
+            this.segments.items_changed.connect(() => {  // Gotta recompute the sum completely as this signal may be called even when no items have been added but their value just changed.
+                this.max_val = 0;
+                for (int i = 0; i < this.segments.get_n_items(); i++)
+                    this.max_val += get_segment(i).segmt_val;
+            });
 
             this.need_popover_contents.connect((segmt) => {
                 var g = new Gtk.Grid();
@@ -358,28 +377,5 @@ namespace Giraffe {
                 return g;
             });
         }
-
-        /**
-         * Adds a segment from a title and a value
-         */
-        [CCode (cname = "giraffe_absolute_pie_add_segment")]
-        public new void add_segment(PieSegment ps) {
-            this.hexpand = true;
-            this.vexpand = true;
-            segments.add (ps);
-            ps.segmt_color_n = colorn;
-            max_val += ps.segmt_val;
-            redraw_canvas ();
-            colorn += 1;
-        }
-
-        /**
-         * Gets the sum total of all the bar charts
-         */
-        [CCode (cname = "giraffe_absolute_pie_get_max_val")]
-        protected double get_max_val() {
-            return max_val;
-        }
-
     }
 }

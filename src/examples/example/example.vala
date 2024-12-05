@@ -33,22 +33,23 @@ public static int main(string[] args) {
         ApplicationWindow win = new ApplicationWindow (app);
         Grid grid = new Grid ();
 
-        AbsolutePie absolute_pie = new AbsolutePie ();
-        absolute_pie.add_segment(new NamedPieSegment("Tory", 365));
-        absolute_pie.add_segment(new NamedPieSegment("Labour", 203));
-        absolute_pie.add_segment(new NamedPieSegment("Scottish National Party", 48));
-        absolute_pie.add_segment(new NamedPieSegment("LibDems", 11));
-        absolute_pie.add_segment(new NamedPieSegment("DUP", 8));
-        absolute_pie.add_segment(new NamedPieSegment("Other", 15));
+        var abs_segments = new GLib.ListStore(typeof(NamedPieSegment));
+        AbsolutePie absolute_pie = new AbsolutePie(abs_segments);
+        abs_segments.append(new NamedPieSegment("Tory", 365));  // Notice that we change the list itself, not the class that's displaying it. The Pie widget listens for changes on this list and updates accordingly.
+        abs_segments.append(new NamedPieSegment("Labour", 203));
+        abs_segments.append(new NamedPieSegment("Scottish National Party", 48));
+        abs_segments.append(new NamedPieSegment("LibDems", 11));
+        abs_segments.append(new NamedPieSegment("DUP", 8));
+        abs_segments.append(new NamedPieSegment("Other", 15));
 
-
-        Pie pie = new Pie () { frame_instead_of_popover = true };
-        pie.add_segment(new NamedPieSegment("Tory", 56.153846154f));
-        pie.add_segment(new NamedPieSegment("Labour", 31.230769231f));
-        pie.add_segment(new NamedPieSegment("Scottish National Party", 7.384615385f));
-        pie.add_segment(new NamedPieSegment("Lib Dem", 1.692307692f));
-        pie.add_segment(new NamedPieSegment("DUP", 1.230769231f));
-        pie.add_segment(new NamedPieSegment("Other", 2.307692308f));
+        var pie_segments = new GLib.ListStore(typeof(NamedPieSegment));
+        Pie pie = new Pie(pie_segments) { frame_instead_of_popover = true };
+        pie_segments.append(new NamedPieSegment("Tory", 56.153846154f));
+        pie_segments.append(new NamedPieSegment("Labour", 31.230769231f));
+        pie_segments.append(new NamedPieSegment("Scottish National Party", 7.384615385f));
+        pie_segments.append(new NamedPieSegment("Lib Dem", 1.692307692f));
+        pie_segments.append(new NamedPieSegment("DUP", 1.230769231f));
+        pie_segments.append(new NamedPieSegment("Other", 2.307692308f));
 
 
         BarChart barchart = new BarChart ("Boiling Points Of the Halogens", "Element", "Boiling Point (°C)");
