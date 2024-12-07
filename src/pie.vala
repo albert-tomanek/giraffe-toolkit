@@ -338,9 +338,7 @@ namespace Giraffe {
         }
                 
         protected void redraw_canvas() {
-            // Redraw the Cairo canvas completely by exposing it
-            this.hide ();
-            this.show ();
+            da.queue_draw();
         }
     
     }
