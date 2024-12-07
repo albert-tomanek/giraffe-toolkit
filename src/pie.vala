@@ -21,6 +21,46 @@
 
 using Gtk, Cairo, Gee, Math, Gdk;
 
+private class LMNotifyListener: Object  // Esssentially `GLib.ListModel.items_changed` but for properties within the items as well.
+{
+    GLib.ListModel lm;
+    string property;
+
+    Array<Gtk.ExpressionWatch> watches = new Array<Gtk.ExpressionWatch>();  // The objects in this array keep alive callbacks listening to updates on the object at the equivalent position in this.lm
+    
+    public signal void need_update();
+
+    public LMNotifyListener(GLib.ListModel lm, string property)
+    {
+        this.lm = lm;
+        this.property = property;
+        
+        this.on_items_changed(0, 0, lm.get_n_items());
+
+        lm.items_changed.connect(this.on_items_changed);
+        lm.items_changed.connect(() => this.need_update());
+    }
+
+    private void on_items_changed(uint pos, uint removed, uint added)
+    {
+        for (uint i = 0; i < removed; i++)
+            this.watches.remove_index(pos).unwatch();
+        for (uint i = 0; i < added; i++)
+        {
+            var exp = new Gtk.PropertyExpression(this.lm.get_item_type(), null, this.property);
+            this.watches.insert_val(
+                pos+i,
+                exp.watch(
+                    this.lm.get_item(pos+i),
+                    () => {
+                        this.need_update();
+                    }
+                )
+            );
+        }
+    }
+}
+
 namespace Giraffe {
     /**
      * A simple class to store information about a pie segment
@@ -92,10 +132,10 @@ namespace Giraffe {
             orientation = Gtk.Orientation.HORIZONTAL;
             spacing = 8;
             vexpand = true;
-
+            
             /* Us stuff */
             this.max_val = 100;
-    
+            
             this.da = new Gtk.DrawingArea() {
                 hexpand = true,
                 vexpand = true,
@@ -104,29 +144,27 @@ namespace Giraffe {
             };
             this.da.set_draw_func(draw);
             this.append(da);
-    
+            
             motion_controller = new EventControllerMotion ();
             this.motion_controller.motion.connect (draw_motion_notify_event);
             this.motion_controller.leave.connect (() => popover.popdown ());
             this.da.add_controller (motion_controller);
-    
+            
             this.segments.items_changed.connect((pos, removed, added) => {  // FIXME: If `this.segments` gets swapped out, the old listener will still exist afaik.
                 this.colorn -= (int) removed;
                 for (int i = 0; i < added; i++)     // Remember, more segments may have been added at once.
                     get_segment(pos + i).segmt_color_n = this.colorn++;
 
-                this.redraw_canvas();
-            });
-            this.notify["segments"].connect(() => {     // You can even swap out the list of segments in real time!
-                assert (this.segments.get_item_type().is_a(typeof(PieSegment)));
-                this.redraw_canvas();
-                this.popover_segmt = null;
-                //  this.max_val = 0;
-            });
-    
-            this.popover = new Popover () {
-                autohide = false
+                    this.redraw_canvas();
+                });
+                
+                this.popover = new Popover () {
+                    autohide = false
             };
+            // Listen for changes to the data within the segments
+            var nl = new LMNotifyListener(this.segments, "segmt-val");
+            nl.need_update.connect(this.redraw_canvas);
+            
             this.popover.set_parent(this);
 
             this.frame = new Frame(null) {
@@ -139,62 +177,62 @@ namespace Giraffe {
             this.append(this.frame);
             this.bind_property("frame-instead-of-popover", frame, "visible", BindingFlags.SYNC_CREATE);
             this.bind_property("frame-instead-of-popover", this, "hexpand", BindingFlags.SYNC_CREATE);
-    
+            
             this.notify["popover-segmt"].connect(() => {
                 if (!frame_instead_of_popover)
                 {
                     if (this.popover_segmt == null)
-                        this.popover.hide ();
+                    this.popover.hide ();
                     else {
                         // Position
                         var rect = Gdk.Rectangle () {
                             width = 1,
                             height = 1
                         };
-        
+                        
                         // Calculate x and y
                         for (double i = 0, running_total = 0; i < this.segments.get_n_items(); i++)
                         {
                             var segmt = get_segment((uint) i);
-        
+                            
                             if (segmt == this.popover_segmt)
                             {
                                 rect.x = (int) (cos ((((running_total + running_total + segmt.segmt_val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_width() / 2);
                                 rect.y = (int) (sin ((((running_total + running_total + segmt.segmt_val) / 2) / max_val) * PI * 2) * (radius * 0.67)) + (da.get_allocated_height() / 2);
-        
+                                
                                 break;
                             }
-        
+                            
                             running_total += segmt.segmt_val;
                         }
         
                         this.popover.pointing_to = rect;
-        
+                        
                         // Contents
                         this.popover.child = this.need_popover_contents(this.popover_segmt);
-        
+                        
                         this.popover.popup();
                     }
                 }
                 else
                 {
                     if (this.popover_segmt != null)
-                        this.frame.child = this.need_popover_contents(this.popover_segmt);
-                        this.frame.child.halign = Gtk.Align.CENTER;
-                        this.frame.child.valign = Gtk.Align.CENTER;
+                    this.frame.child = this.need_popover_contents(this.popover_segmt);
+                    this.frame.child.halign = Gtk.Align.CENTER;
+                    this.frame.child.valign = Gtk.Align.CENTER;
                 }
             });
             
             // Default popover contents
             this.need_popover_contents.connect((segmt) => {
                 var g = new Gtk.Grid();
-    
+                
                 var l1 = new Gtk.Label((segmt as NamedPieSegment)?.title);
                 g.attach(l1, 0, 0);
-    
+                
                 var l2 = new Gtk.Label(@"$(segmt.segmt_val)%");
                 g.attach(l2, 0, 1);
-    
+                
                 return g;
             });
         }
