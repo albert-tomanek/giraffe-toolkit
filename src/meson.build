@@ -36,16 +36,3 @@ pkg.generate (
 	requires: ['glib-2.0','gobject-2.0','gtk4','cairo','gee-0.8'],
 	install_dir: join_paths(get_option('libdir'),'pkgconfig')
 	)
-
-
-
-# Append this to meson.build after an initial successful ninja run to generate the typelib. We have to wait for a successful ninja build first because of a BUG. (https://stackoverflow.com/questions/45602488/building-with-meson-ninja-takes-multiple-executions-to-complete)
-
-# https://mesonbuild.com/Vala.html#gobject-introspection-and-language-bindings
-g_ir_compiler = find_program('g-ir-compiler')	# Create a .typelib from the .gir so that we can be used from Python.
-custom_target('giraffe4 typelib', command: [g_ir_compiler, '-l', 'libgiraffe4.so', '--output', '@OUTPUT@', '@INPUT@'],
-              input: meson.current_build_dir() / 'giraffe-4.gir',
-              output: 'giraffe-4.typelib',
-              depends: giraffe_lib,
-              install: true,
-              install_dir: get_option('libdir') / 'girepository-1.0')
