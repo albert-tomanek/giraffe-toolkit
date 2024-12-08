@@ -21,7 +21,7 @@
 
 using Gtk, Cairo, Gee, Math, Gdk;
 
-private class LMNotifyListener: Object  // Esssentially `GLib.ListModel.items_changed` but for properties within the items as well.
+private class ListModelNotifyListener: Object  // Esssentially `GLib.ListModel.items_changed` but for properties within the items as well.
 {
     GLib.ListModel lm;
     string property;
@@ -30,7 +30,7 @@ private class LMNotifyListener: Object  // Esssentially `GLib.ListModel.items_ch
     
     public signal void need_update();
 
-    public LMNotifyListener(GLib.ListModel lm, string property)
+    public ListModelNotifyListener(GLib.ListModel lm, string property)
     {
         this.lm = lm;
         this.property = property;
@@ -108,6 +108,7 @@ namespace Giraffe {
         protected int colorn;
         private int radius;
         public ListModel segments { get; construct; }   // Must not be null
+        internal ListModelNotifyListener nl;
         public bool use_gradient { get; set; default = true; }
     
         public EventControllerMotion motion_controller;
@@ -162,8 +163,8 @@ namespace Giraffe {
                     autohide = false
             };
             // Listen for changes to the data within the segments
-            var nl = new LMNotifyListener(this.segments, "segmt-val");
-            nl.need_update.connect(this.redraw_canvas);
+            this.nl = new ListModelNotifyListener(this.segments, "segmt-val");
+            this.nl.need_update.connect_after(this.redraw_canvas);  // Decendants with their own max_val need to compute it first. connect_after: https://stackoverflow.com/a/45900559/6130358
             
             this.popover.set_parent(this);
 
@@ -376,7 +377,8 @@ namespace Giraffe {
         }
                 
         protected void redraw_canvas() {
-            da.queue_draw();
+            da.hide();
+            da.show();
         }
     
     }
@@ -392,7 +394,7 @@ namespace Giraffe {
         construct {
             this.max_val = 0;
 
-            this.segments.items_changed.connect(() => {  // Gotta recompute the sum completely as this signal may be called even when no items have been added but their value just changed.
+            this.nl.need_update.connect(() => {     // When one of the items' values changes
                 this.max_val = 0;
                 for (int i = 0; i < this.segments.get_n_items(); i++)
                     this.max_val += get_segment(i).segmt_val;
