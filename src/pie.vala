@@ -380,7 +380,11 @@ namespace Giraffe {
             da.hide();
             da.show();
         }
-    
+        
+        public void force_update()
+        {
+            this.nl.need_update();
+        }
     }
     
     [Description (nick = "A Pie using absolute values", blurb = "Use this pie chart if you want the values to constantly change, rather than using percentages")]
