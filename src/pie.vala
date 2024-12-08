@@ -21,47 +21,47 @@
 
 using Gtk, Cairo, Gee, Math, Gdk;
 
-private class ListModelNotifyListener: Object  // Esssentially `GLib.ListModel.items_changed` but for properties within the items as well.
-{
-    GLib.ListModel lm;
-    string property;
-
-    Array<Gtk.ExpressionWatch> watches = new Array<Gtk.ExpressionWatch>();  // The objects in this array keep alive callbacks listening to updates on the object at the equivalent position in this.lm
-    
-    public signal void need_update();
-
-    public ListModelNotifyListener(GLib.ListModel lm, string property)
+namespace Giraffe {
+    public class ListModelNotifyListener: Object  // Esssentially `GLib.ListModel.items_changed` but for properties within the items as well.
     {
-        this.lm = lm;
-        this.property = property;
+        GLib.ListModel lm;
+        string property;
+
+        Array<Gtk.ExpressionWatch> watches = new Array<Gtk.ExpressionWatch>();  // The objects in this array keep alive callbacks listening to updates on the object at the equivalent position in this.lm
         
-        this.on_items_changed(0, 0, lm.get_n_items());
+        public signal void need_update();
 
-        lm.items_changed.connect(this.on_items_changed);
-        lm.items_changed.connect(() => this.need_update());
-    }
-
-    private void on_items_changed(uint pos, uint removed, uint added)
-    {
-        for (uint i = 0; i < removed; i++)
-            this.watches.remove_index(pos).unwatch();
-        for (uint i = 0; i < added; i++)
+        public ListModelNotifyListener(GLib.ListModel lm, string property)
         {
-            var exp = new Gtk.PropertyExpression(this.lm.get_item_type(), null, this.property);
-            this.watches.insert_val(
-                pos+i,
-                exp.watch(
-                    this.lm.get_item(pos+i),
-                    () => {
-                        this.need_update();
-                    }
-                )
-            );
+            this.lm = lm;
+            this.property = property;
+            
+            this.on_items_changed(0, 0, lm.get_n_items());
+
+            lm.items_changed.connect(this.on_items_changed);
+            lm.items_changed.connect(() => this.need_update());
+        }
+
+        private void on_items_changed(uint pos, uint removed, uint added)
+        {
+            for (uint i = 0; i < removed; i++)
+                this.watches.remove_index(pos).unwatch();
+            for (uint i = 0; i < added; i++)
+            {
+                var exp = new Gtk.PropertyExpression(this.lm.get_item_type(), null, this.property);
+                this.watches.insert_val(
+                    pos+i,
+                    exp.watch(
+                        this.lm.get_item(pos+i),
+                        () => {
+                            this.need_update();
+                        }
+                    )
+                );
+            }
         }
     }
-}
 
-namespace Giraffe {
     /**
      * A simple class to store information about a pie segment
      *
